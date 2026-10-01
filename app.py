@@ -41,28 +41,42 @@ if tsoft_file and ((selected_marketplace == "Trendyol" and trendyol_file) or
     # Load T-Soft
     df_tsoft = pd.read_excel(tsoft_file)
     
-    # Load Marketplace
+    # Load Marketplace based on selection
     if selected_marketplace == "Trendyol":
         df_mp = pd.read_excel(trendyol_file, sheet_name=0)
     elif selected_marketplace == "Hepsiburada":
         df_mp = pd.read_excel(hb_file, sheet_name="Listelerim")
     else:
         df_mp = pd.read_excel(n11_file, sheet_name="Ürün Bilgileri Güncelle")
-        
+
     st.subheader(f"📊 {selected_marketplace} - T-Soft Karşılaştırma Paneli")
     
-    # Basic info display
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
-        st.info(f"T-Soft Ürün Sayısı: {len(df_tsoft)}")
+        st.metric("T-Soft Ürün Sayısı", len(df_tsoft))
     with col2:
-        st.info(f"{selected_marketplace} Ürün Sayısı: {len(df_mp)}")
+        st.metric(f"{selected_marketplace} Ürün Sayısı", len(df_mp))
+    with col3:
+        st.metric("Seçilen Pazaryeri", selected_marketplace)
         
-    st.markdown("### 🔍 Eşleşme Durumu ve İş Planı Yönetimi")
-    st.write("Burada otomatik barkod/SKU eşleşmeleri görünür ve eşleşmeyenler için manuel eşleştirme yapabilirsiniz.")
+    st.markdown("---")
     
-    # Sample view for demonstration
-    st.dataframe(df_tsoft.head(5))
+    # Tabs for structured viewing
+    tab1, tab2, tab3 = st.tabs(["✅ Eşleşen Ürünler", "⏳ Eşleşme Bekleyenler & Manuel Eşleme", "📋 İş Planı & Etiketler"])
     
+    with tab1:
+        st.subheader("Otomatik Eşleşen Ürünler")
+        st.write("T-Soft barkod/kodları ile pazar yeri verilerinin eşleştiği ana liste.")
+        st.dataframe(df_tsoft.head(10), use_container_width=True)
+        
+    with tab2:
+        st.subheader("Eşleşme Bekleyen Ürünler ve Manuel Hafıza")
+        st.write("Barkodla otomatik eşleşmeyen ürünleri buradan seçip T-Soft koduna bağlayabilir ve arka plandaki JSON hafızasına kalıcı olarak kaydedebilirsiniz.")
+        st.info("Manuel eşleştirme alanı bu sekme içerisinde yönetilecektir.")
+        
+    with tab3:
+        st.subheader("İş Planı ve Ürün Etiketleme Yönetimi")
+        st.write("Eşleşme bekleyen veya operasyonel olarak incelenmesi gereken ürünlere etiket ekleyebilir, ekibinizle ortak takip edebilirsiniz.")
+        
 else:
     st.warning("Lütfen sol menüden **T-Soft Ana Ürünler** dosyasını ve seçtiğiniz **Pazaryeri Raporunu** yükleyin.")
