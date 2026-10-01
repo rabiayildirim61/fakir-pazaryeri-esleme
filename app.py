@@ -38,7 +38,7 @@ if tsoft_file and ((selected_marketplace == "Trendyol" and trendyol_file) or
                    (selected_marketplace == "Hepsiburada" and hb_file) or 
                    (selected_marketplace == "N11" and n11_file)):
     
-    # 1. Verileri Oku
+    # Verileri Oku
     df_tsoft = pd.read_excel(tsoft_file)
     
     if selected_marketplace == "Trendyol":
@@ -63,7 +63,7 @@ if tsoft_file and ((selected_marketplace == "Trendyol" and trendyol_file) or
         mp_stock_col = "Stok"
         mp_barcode_col = "Barcode"
 
-    # Veri tiplerini string yapalım ki eşleşme kaçmasın
+    # Veri tiplerini string yapalım
     df_tsoft["Barkod_str"] = df_tsoft["Barkod"].astype(str).str.strip().str.replace(".0", "", regex=False)
     df_tsoft["SKU_str"] = df_tsoft["Web Servis Kodu"].astype(str).str.strip()
     
@@ -74,8 +74,6 @@ if tsoft_file and ((selected_marketplace == "Trendyol" and trendyol_file) or
     
     # Otomatik Barkod Eşleşmesi
     merged_df = pd.merge(df_tsoft, df_mp, left_on="Barkod_str", right_on="MP_Barcode_str", how="inner", suffixes=("_tsoft", "_mp"))
-    
-    # Eşleşmeyenler
     unmatched_mp = df_mp[~df_mp["MP_Barcode_str"].isin(df_tsoft["Barkod_str"])]
 
     col1, col2, col3 = st.columns(3)
@@ -94,23 +92,59 @@ if tsoft_file and ((selected_marketplace == "Trendyol" and trendyol_file) or
     with tab1:
         st.subheader("Otomatik Eşleşen Ürünler (T-Soft & Pazaryeri)")
         if len(merged_df) > 0:
-            # Güvenli kolon seçimi
             available_cols = [c for c in ["SKU_str", "Ürün Adı_tsoft", "Barkod_str", "Stok", "KDV Dahil Fiyat"] if c in merged_df.columns]
             st.dataframe(merged_df[available_cols], use_container_width=True)
         else:
             st.warning("Barkod üzerinden otomatik eşleşen ürün bulunamadı.")
         
     with tab2:
-        st.subheader("Eşleşme Bekleyen Ürünler")
-        st.write("Barkodları eşleşmeyen pazar yeri ürünleri:")
+        st.subheader("Eşleşme Bekleyen Ürünler ve Manuel Hafıza")
+        st.write("Barkodları eşleşmeyen pazar yeri ürünlerini buradan seçip T-Soft koduna bağlayabilir ve kalıcı olarak hafızaya kaydedebilirsiniz.")
+        
         if len(unmatched_mp) > 0:
-            st.dataframe(unmatched_mp[[mp_sku_col, mp_name_col, mp_barcode_col, mp_price_col, mp_stock_col]], use_container_width=True)
+            for idx, row in unmatched_mp.iterrows():
+                mp_sku = row[mp_sku_col]
+                mp_name = row[mp_name_col]
+                mp_barcode = row[mp_barcode_col]
+                
+                with st.expander(f"📌 [{mp_sku}] {mp_name}"):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.write(f"**Pazaryeri Barkod:** {mp_barcode}")
+                        st.write(f"**Pazaryeri Fiyat:** {row[mp_price_col]} | **Stok:** {row[mp_stock_col]}")
+                    with c2:
+                        # T-Soft ürün seçimi için dropdown
+                        tsoft_options = df_tsoft["SKU_str"] + " - " + df_tsoft["Ürün Adı"]
+                        selected_tsoft = st.selectbox(T-Soft Eşleşmesi Seç ({mp_sku}), tsoft_options, key=f"select_{mp_sku}")
+                        
+                        if st.button("🔗 Manuel Eşle ve Kaydet", key=f"btn_{mp_sku}"):
+                            chosen_sku = selected_tsoft.split(" - ")[0]
+                            # JSON hafızasına kaydet
+                            if selected_marketplace not in st.session_state.data["mappings"]:
+                                st.session_state.data["mappings"][selected_marketplace] = {}
+                            st.session_state.data["mappings"][selected_marketplace][str(mp_sku)] = chosen_sku
+                            save_mappings(st.session_state.data)
+                            st.success(f"Başarıyla eşleştirildi ve hafızaya kaydedildi: {mp_sku} -> {chosen_sku}")
+                            st.rerun()
+                            
+                    # İş Planına Ekleme Alanı
+                    action_tag = st.selectbox("İş Planı Etiketi", ["Seçiniz...", "Ürün Açılacak", "Fiyat Kontrol Edilecek", "Stok Güncellenecek", "İncelenecek"], key=f"action_{mp_sku}")
+                    if action_tag != "Seçiniz...":
+                        if "action_plan" not in st.session_state.data:
+                            st.session_state.data["action_plan"] = {}
+                        st.session_state.data["action_plan"][str(mp_sku)] = {"marketplace": selected_marketplace, "name": mp_name, "tag": action_tag}
+                        save_mappings(st.session_state.data)
         else:
             st.success("Tüm pazar yeri ürünleri başarıyla eşleşmiş durumda!")
         
     with tab3:
         st.subheader("İş Planı ve Ürün Etiketleme Yönetimi")
-        st.write("Eşleşme bekleyen veya kontrol edilmesi gereken ürünler için etiketleme alanı.")
+        action_plans = st.session_state.data.get("action_plan", {})
+        if action_plans:
+            plan_df = pd.DataFrame.from_dict(action_plans, orient="index")
+            st.dataframe(plan_df, use_container_width=True)
+        else:
+            st.info("Henüz iş planına eklenmiş bir ürün bulunmuyor.")
         
 else:
     st.warning("Lütfen sol menüden **T-Soft Ana Ürünler** dosyasını ve seçtiğin **Pazaryeri Raporunu** yükleyin.")
