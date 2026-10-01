@@ -113,13 +113,12 @@ if tsoft_file and ((selected_marketplace == "Trendyol" and trendyol_file) or
                         st.write(f"**Pazaryeri Barkod:** {mp_barcode}")
                         st.write(f"**Pazaryeri Fiyat:** {row[mp_price_col]} | **Stok:** {row[mp_stock_col]}")
                     with c2:
-                        # T-Soft ürün seçimi için dropdown
                         tsoft_options = df_tsoft["SKU_str"] + " - " + df_tsoft["Ürün Adı"]
-                        selected_tsoft = st.selectbox(T-Soft Eşleşmesi Seç ({mp_sku}), tsoft_options, key=f"select_{mp_sku}")
+                        # Düzeltilen satır: tırnaklar eklendi
+                        selected_tsoft = st.selectbox(f"T-Soft Eşleşmesi Seç ({mp_sku})", tsoft_options, key=f"select_{mp_sku}")
                         
                         if st.button("🔗 Manuel Eşle ve Kaydet", key=f"btn_{mp_sku}"):
                             chosen_sku = selected_tsoft.split(" - ")[0]
-                            # JSON hafızasına kaydet
                             if selected_marketplace not in st.session_state.data["mappings"]:
                                 st.session_state.data["mappings"][selected_marketplace] = {}
                             st.session_state.data["mappings"][selected_marketplace][str(mp_sku)] = chosen_sku
@@ -127,7 +126,6 @@ if tsoft_file and ((selected_marketplace == "Trendyol" and trendyol_file) or
                             st.success(f"Başarıyla eşleştirildi ve hafızaya kaydedildi: {mp_sku} -> {chosen_sku}")
                             st.rerun()
                             
-                    # İş Planına Ekleme Alanı
                     action_tag = st.selectbox("İş Planı Etiketi", ["Seçiniz...", "Ürün Açılacak", "Fiyat Kontrol Edilecek", "Stok Güncellenecek", "İncelenecek"], key=f"action_{mp_sku}")
                     if action_tag != "Seçiniz...":
                         if "action_plan" not in st.session_state.data:
@@ -148,3 +146,4 @@ if tsoft_file and ((selected_marketplace == "Trendyol" and trendyol_file) or
         
 else:
     st.warning("Lütfen sol menüden **T-Soft Ana Ürünler** dosyasını ve seçtiğin **Pazaryeri Raporunu** yükleyin.")
+    
