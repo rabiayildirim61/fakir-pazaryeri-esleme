@@ -11,7 +11,14 @@ def load_mappings():
     if os.path.exists(MAPPING_FILE):
         try:
             with open(MAPPING_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                if not isinstance(data, dict):
+                    return {"mappings": {}, "action_plan": {}}
+                if "mappings" not in data:
+                    data["mappings"] = {}
+                if "action_plan" not in data:
+                    data["action_plan"] = {}
+                return data
         except:
             return {"mappings": {}, "action_plan": {}}
     return {"mappings": {}, "action_plan": {}}
@@ -99,7 +106,7 @@ if tsoft_file and ((selected_marketplace == "Trendyol" and trendyol_file) or
         
     with tab2:
         st.subheader("Eşleşme Bekleyen Ürünler ve Manuel Hafıza")
-        st.write("Barkodları eşleşmeyen pazar yeri ürünlerini buradan seçip T-Soft koduna bağlayabilir ve kalıcı olarak hafızaya kaydedebilirsiniz.")
+        st.write("T-Soft dosyanızda barkodu bulunmayan ürünler için listeden seçebilir veya doğrudan manuel T-Soft Web Servis Kodu (SKU) yazarak eşleştirebilirsiniz.")
         
         if len(unmatched_mp) > 0:
             for idx, row in unmatched_mp.iterrows():
@@ -113,12 +120,19 @@ if tsoft_file and ((selected_marketplace == "Trendyol" and trendyol_file) or
                         st.write(f"**Pazaryeri Barkod:** {mp_barcode}")
                         st.write(f"**Pazaryeri Fiyat:** {row[mp_price_col]} | **Stok:** {row[mp_stock_col]}")
                     with c2:
-                        tsoft_options = df_tsoft["SKU_str"] + " - " + df_tsoft["Ürün Adı"]
-                        # Düzeltilen satır: tırnaklar eklendi
-                        selected_tsoft = st.selectbox(f"T-Soft Eşleşmesi Seç ({mp_sku})", tsoft_options, key=f"select_{mp_sku}")
+                        match_mode = st.radio("Eşleme Yöntemi", ["Listeden Seç", "Manuel SKU Yaz"], key=f"mode_{mp_sku}", horizontal=True)
+                        
+                        chosen_sku = ""
+                        if match_mode == "Listeden Seç":
+                            tsoft_options = df_tsoft["SKU_str"] + " - " + df_tsoft["Ürün Adı"]
+                            selected_tsoft = st.selectbox("T-Soft Eşleşmesi Seç", tsoft_options, key=f"select_{mp_sku}")
+                            chosen_sku = selected_tsoft.split(" - ")[0]
+                        else:
+                            chosen_sku = st.text_input("T-Soft Web Servis Kodu (SKU) Gir", value=str(mp_sku), key=f"text_{mp_sku}")
                         
                         if st.button("🔗 Manuel Eşle ve Kaydet", key=f"btn_{mp_sku}"):
-                            chosen_sku = selected_tsoft.split(" - ")[0]
+                            if "mappings" not in st.session_state.data:
+                                st.session_state.data["mappings"] = {}
                             if selected_marketplace not in st.session_state.data["mappings"]:
                                 st.session_state.data["mappings"][selected_marketplace] = {}
                             st.session_state.data["mappings"][selected_marketplace][str(mp_sku)] = chosen_sku
@@ -146,4 +160,3 @@ if tsoft_file and ((selected_marketplace == "Trendyol" and trendyol_file) or
         
 else:
     st.warning("Lütfen sol menüden **T-Soft Ana Ürünler** dosyasını ve seçtiğin **Pazaryeri Raporunu** yükleyin.")
-    
