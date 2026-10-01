@@ -50,9 +50,7 @@ if tsoft_file and ((selected_marketplace == "Trendyol" and trendyol_file) or
         mp_barcode_col = "Barkod"
     elif selected_marketplace == "Hepsiburada":
         df_mp = pd.read_excel(hb_file, sheet_name="Listelerim")
-        mp_sku_col = "Satıcı Stok Kodu"
-        if mp_sku_col not in df_mp.columns:
-            mp_sku_col = "SKU"
+        mp_sku_col = "Satıcı Stok Kodu" if "Satıcı Stok Kodu" in df_mp.columns else "SKU"
         mp_name_col = "Ürün Adı"
         mp_price_col = "Fiyat"
         mp_stock_col = "Stok"
@@ -96,7 +94,9 @@ if tsoft_file and ((selected_marketplace == "Trendyol" and trendyol_file) or
     with tab1:
         st.subheader("Otomatik Eşleşen Ürünler (T-Soft & Pazaryeri)")
         if len(merged_df) > 0:
-            st.dataframe(merged_df[[ "SKU_str", "Ürün Adı_tsoft", "Barkod_str", "Stok", "KDV Dahil الفiyat" if "KDV Dahil Fiyat" in merged_df.columns else "KDV Dahil Fiyat"]], use_container_width=True)
+            # Güvenli kolon seçimi
+            available_cols = [c for c in ["SKU_str", "Ürün Adı_tsoft", "Barkod_str", "Stok", "KDV Dahil Fiyat"] if c in merged_df.columns]
+            st.dataframe(merged_df[available_cols], use_container_width=True)
         else:
             st.warning("Barkod üzerinden otomatik eşleşen ürün bulunamadı.")
         
