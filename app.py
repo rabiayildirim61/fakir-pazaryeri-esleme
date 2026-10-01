@@ -38,45 +38,79 @@ if tsoft_file and ((selected_marketplace == "Trendyol" and trendyol_file) or
                    (selected_marketplace == "Hepsiburada" and hb_file) or 
                    (selected_marketplace == "N11" and n11_file)):
     
-    # Load T-Soft
+    # 1. Verileri Oku
     df_tsoft = pd.read_excel(tsoft_file)
     
-    # Load Marketplace based on selection
     if selected_marketplace == "Trendyol":
         df_mp = pd.read_excel(trendyol_file, sheet_name=0)
+        mp_sku_col = "Tedarikçi Stok Kodu"
+        mp_name_col = "Ürün Adı"
+        mp_price_col = "Trendyol'da Satılacak Fiyat (KDV Dahil)"
+        mp_stock_col = "Ürün Stok Adedi"
+        mp_barcode_col = "Barkod"
     elif selected_marketplace == "Hepsiburada":
         df_mp = pd.read_excel(hb_file, sheet_name="Listelerim")
+        mp_sku_col = "Satıcı Stok Kodu"
+        if mp_sku_col not in df_mp.columns:
+            mp_sku_col = "SKU"
+        mp_name_col = "Ürün Adı"
+        mp_price_col = "Fiyat"
+        mp_stock_col = "Stok"
+        mp_barcode_col = "Barkod"
     else:
         df_mp = pd.read_excel(n11_file, sheet_name="Ürün Bilgileri Güncelle")
+        mp_sku_col = "Stok Kodu " if "Stok Kodu " in df_mp.columns else "Stok Kodu"
+        mp_name_col = "Ürün Adı " if "Ürün Adı " in df_mp.columns else "Ürün Adı"
+        mp_price_col = "N11 Satış Fiyatı (KDV Dahil)"
+        mp_stock_col = "Stok"
+        mp_barcode_col = "Barcode"
+
+    # Veri tiplerini string yapalım ki eşleşme kaçmasın
+    df_tsoft["Barkod_str"] = df_tsoft["Barkod"].astype(str).str.strip().str.replace(".0", "", regex=False)
+    df_tsoft["SKU_str"] = df_tsoft["Web Servis Kodu"].astype(str).str.strip()
+    
+    df_mp["MP_Barcode_str"] = df_mp[mp_barcode_col].astype(str).str.strip().str.replace(".0", "", regex=False)
+    df_mp["MP_SKU_str"] = df_mp[mp_sku_col].astype(str).str.strip()
 
     st.subheader(f"📊 {selected_marketplace} - T-Soft Karşılaştırma Paneli")
     
+    # Otomatik Barkod Eşleşmesi
+    merged_df = pd.merge(df_tsoft, df_mp, left_on="Barkod_str", right_on="MP_Barcode_str", how="inner", suffixes=("_tsoft", "_mp"))
+    
+    # Eşleşmeyenler
+    unmatched_mp = df_mp[~df_mp["MP_Barcode_str"].isin(df_tsoft["Barkod_str"])]
+
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("T-Soft Ürün Sayısı", len(df_tsoft))
+        st.metric("T-Soft Toplam Ürün", len(df_tsoft))
     with col2:
-        st.metric(f"{selected_marketplace} Ürün Sayısı", len(df_mp))
+        st.metric(f"{selected_marketplace} Toplam Ürün", len(df_mp))
     with col3:
-        st.metric("Seçilen Pazaryeri", selected_marketplace)
+        st.metric("Otomatik Eşleşen Ürün", len(merged_df))
         
     st.markdown("---")
     
-    # Tabs for structured viewing
+    # Sekmeler
     tab1, tab2, tab3 = st.tabs(["✅ Eşleşen Ürünler", "⏳ Eşleşme Bekleyenler & Manuel Eşleme", "📋 İş Planı & Etiketler"])
     
     with tab1:
-        st.subheader("Otomatik Eşleşen Ürünler")
-        st.write("T-Soft barkod/kodları ile pazar yeri verilerinin eşleştiği ana liste.")
-        st.dataframe(df_tsoft.head(10), use_container_width=True)
+        st.subheader("Otomatik Eşleşen Ürünler (T-Soft & Pazaryeri)")
+        if len(merged_df) > 0:
+            st.dataframe(merged_df[[ "SKU_str", "Ürün Adı_tsoft", "Barkod_str", "Stok", "KDV Dahil الفiyat" if "KDV Dahil Fiyat" in merged_df.columns else "KDV Dahil Fiyat"]], use_container_width=True)
+        else:
+            st.warning("Barkod üzerinden otomatik eşleşen ürün bulunamadı.")
         
     with tab2:
-        st.subheader("Eşleşme Bekleyen Ürünler ve Manuel Hafıza")
-        st.write("Barkodla otomatik eşleşmeyen ürünleri buradan seçip T-Soft koduna bağlayabilir ve arka plandaki JSON hafızasına kalıcı olarak kaydedebilirsiniz.")
-        st.info("Manuel eşleştirme alanı bu sekme içerisinde yönetilecektir.")
+        st.subheader("Eşleşme Bekleyen Ürünler")
+        st.write("Barkodları eşleşmeyen pazar yeri ürünleri:")
+        if len(unmatched_mp) > 0:
+            st.dataframe(unmatched_mp[[mp_sku_col, mp_name_col, mp_barcode_col, mp_price_col, mp_stock_col]], use_container_width=True)
+        else:
+            st.success("Tüm pazar yeri ürünleri başarıyla eşleşmiş durumda!")
         
     with tab3:
         st.subheader("İş Planı ve Ürün Etiketleme Yönetimi")
-        st.write("Eşleşme bekleyen veya operasyonel olarak incelenmesi gereken ürünlere etiket ekleyebilir, ekibinizle ortak takip edebilirsiniz.")
+        st.write("Eşleşme bekleyen veya kontrol edilmesi gereken ürünler için etiketleme alanı.")
         
 else:
-    st.warning("Lütfen sol menüden **T-Soft Ana Ürünler** dosyasını ve seçtiğiniz **Pazaryeri Raporunu** yükleyin.")
+    st.warning("Lütfen sol menüden **T-Soft Ana Ürünler** dosyasını ve seçtiğin **Pazaryeri Raporunu** yükleyin.")
